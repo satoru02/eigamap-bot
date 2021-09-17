@@ -161,7 +161,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/eigamap-bot/dev/1631865332028-2021-09-17T07:55:32.028Z/eigamap-bot.zip"
+          "S3Key": "serverless/eigamap-bot/dev/1631894512663-2021-09-17T16:01:52.663Z/eigamap-bot.zip"
         },
         "Handler": "handler.main",
         "Runtime": "nodejs14.x",
@@ -187,14 +187,14 @@
         "MainLogGroup"
       ]
     },
-    "MainLambdaVersion4T7pyfHWt3PUUHM5lzUea1dV9C2O4CYXSfRzeqtMECo": {
+    "MainLambdaVersionKdReurBvEtiklOoaZGt84qY8R2C9UmLKFkCvYIwtjE": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "MainLambdaFunction"
         },
-        "CodeSha256": "ecRQk/BX60A/u5PGEYDHZ0SocW9DLM8RuGD3nS6KDhM="
+        "CodeSha256": "dfxXSM6KuadAK4tu/kSnj/uGC38wBk5J3Dw8nLiQM5s="
       }
     },
     "HttpApi": {
@@ -305,7 +305,7 @@
     "MainLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "MainLambdaVersion4T7pyfHWt3PUUHM5lzUea1dV9C2O4CYXSfRzeqtMECo"
+        "Ref": "MainLambdaVersionKdReurBvEtiklOoaZGt84qY8R2C9UmLKFkCvYIwtjE"
       },
       "Export": {
         "Name": "sls-eigamap-bot-dev-MainLambdaFunctionQualifiedArn"
