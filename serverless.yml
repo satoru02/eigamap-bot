@@ -1,0 +1,24 @@
+service: eigamap-bot
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  lambdaHashingVersion: 20201221
+  environment:
+    CHANNEL_ID: ${file(env.yml):CHANNEL_ID}
+    CHANNEL_SECRET: ${file(env.yml):CHANNEL_SECRET}
+    CHANNEL_ACCESS_TOKEN: ${file(env.yml):CHANNEL_ACCESS_TOKEN}
+    GOOGLE_API_KEY: ${file(env.yml):GOOGLE_API_KEY}
+
+  stage: dev
+  region: ap-northeast-1
+
+functions:
+  main:
+    handler: handler.main
+    name: ${sls:stage}-eigamap-bot
+    events:
+     - httpApi:
+         path: /
+         method: post
