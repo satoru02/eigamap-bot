@@ -5,6 +5,10 @@ const axios = require('axios');
 const AWS = require("aws-sdk");
 const docClient = new AWS.DynamoDB.DocumentClient();
 const googleKey = process.env.GOOGLE_API_KEY;
+const fs = require('fs');
+const { LexRuntime } = require('aws-sdk');
+const raw = fs.readFileSync('geodata.json');
+const theaters = JSON.parse(raw);
 const bot = linebot({
   channelId: process.env.CHANNEL_ID,
   channelSecret: process.env.CHANNEL_SECRET,
@@ -41,7 +45,7 @@ module.exports.main = async (event) => {
       case "unfollow":
         break;
       case "postback":
-        if(body.postback.data === "datePick"){
+        if (body.postback.data === "datePick") {
           var res = await getUser(userId);
           var user = JSON.parse(res);
           var messages = await setReply(user, body);
@@ -120,63 +124,70 @@ module.exports.main = async (event) => {
           messages.push(errorMsg);
         }
         break;
-        case "time":
-        case "searched":
-          if(eventBody.message){
-            var resetTimeMsg = resetTimeMessage();
-            messages.push(resetTimeMsg);
-            return messages;
-          } else if(eventBody.type == "postback") {
-            var keyParams = {
-              "user_id": user.user_id,
-            }
-            var expAtr = {
-              ":sit": "searched",
-              ":sct": eventBody.postback.params.time,
-              ":lng": user.lng,
-              ":lat": user.lat,
-              ":plc": user.place,
-              ":dir": 0,
-              ":rel": 0
-            }
-            await updateUser(keyParams, expAtr);
+      case "time":
+      case "searched":
+        if (eventBody.message) {
+          var resetTimeMsg = resetTimeMessage();
+          messages.push(resetTimeMsg);
+          return messages;
+        } else if (eventBody.type == "postback") {
+          var keyParams = {
+            "user_id": user.user_id,
           }
-
+          var expAtr = {
+            ":sit": "searched",
+            ":sct": eventBody.postback.params.time,
+            ":lng": user.lng,
+            ":lat": user.lat,
+            ":plc": user.place,
+            ":dir": 0,
+            ":rel": 0
+          }
+          await updateUser(keyParams, expAtr);
+        }
+        // 3.各映画館の上映情報から、当日のeventBody.postback.params.time以降の上映時間をflex messageで表示。
+        // 4.それ以外の時間の上映情報はmoreで表示。(DB叩かなくていい)
+        // 5.範囲を広げる場合は、2に戻る。
+        var searchLists = searchTheaters(user);
+        const screenInfo = [];
+        for (let i = 0; i < searchLists.length; i++){
           var params = {
-            lat: user.lat,
-            lng: user.lng,
-            place: user.place
+            TableName: "Cinemas",
+            Key: {
+              "name": searchLists[i]
+            }
           }
+          var res = await docClient.get(params).promise();
+          screenInfo.push(JSON.stringify(res.Item));
+        }
+        console.log(screenInfo);
 
-          var theaterList = new Array();
-          var theaters = getTheaterInfo(params)
-
-          // var ret1 = getPlace(location.lat,location.lng,keyword);
-          // if(typeof(ret1) == "object"){
-          //   placeList = ret1;
-          //   searchStatus = "OK";
-          // } else {
-          //   searchStatus = ret1;
-          // }
-          // if(searchStatus == "OK"){
-          //   setSearchResult(userRow, placeList);
-          //   setUserStatus(userRow, "searched");
-          //   var msg1 = searchFinishMessage(userRow);
-          //   messages.push(msg1);
-          //   var msg2 = placesMessage(userRow);
-          //   messages.push(msg2);
-          // } else if(searchStatus == "ZERO_RESULTS") {
-          //   var msg1 = noTheaterMessage(userRow);
-          //   messages.push(msg1);
-          //   //最初に戻る
-          //   setUserStatus(userRow, "address");
-          // } else {
-          //    var msg1 = googleErrorMessage("【Places API】", searchStatus);
-          //    messages.push(msg1);
-          //   //最初に戻る
-          //    setUserStatus(userRow, "address");
-          // }
-          // break;
+        // var ret1 = getPlace(location.lat,location.lng,keyword);
+        // if(typeof(ret1) == "object"){
+        //   placeList = ret1;
+        //   searchStatus = "OK";
+        // } else {
+        //   searchStatus = ret1;
+        // }
+        // if(searchStatus == "OK"){
+        //   setSearchResult(userRow, placeList);
+        //   setUserStatus(userRow, "searched");
+        //   var msg1 = searchFinishMessage(userRow);
+        //   messages.push(msg1);
+        //   var msg2 = placesMessage(userRow);
+        //   messages.push(msg2);
+        // } else if(searchStatus == "ZERO_RESULTS") {
+        //   var msg1 = noTheaterMessage(userRow);
+        //   messages.push(msg1);
+        //   //最初に戻る
+        //   setUserStatus(userRow, "address");
+        // } else {
+        //    var msg1 = googleErrorMessage("【Places API】", searchStatus);
+        //    messages.push(msg1);
+        //   //最初に戻る
+        //    setUserStatus(userRow, "address");
+        // }
+        // break;
     }
     return messages;
   }
@@ -203,8 +214,44 @@ async function getLocation(address) {
     .catch((err) => {
       return "ZERO_RESULTS";
     });
-    return location;
+  return location;
 }
+
+function searchTheaters(user) {
+  const theaterList = [];
+  const R = Math.PI / 180;
+  theaters.features.forEach(theater => {
+    var theaterLng = theater.geometry.coordinates[0];
+    var theaterLat = theater.geometry.coordinates[1];
+    if (distance(user.lat, user.lng, theaterLat, theaterLng, R) < 20) {
+      theaterList.push(theater.properties.title);
+    }
+  });
+  return theaterList;
+}
+
+function distance(userLat, userLng, theaterLat, theaterLng, radius) {
+  userLat *= radius;
+  userLng *= radius;
+  theaterLat *= radius;
+  theaterLng *= radius;
+  return 6371 * Math.acos(Math.cos(userLat) * Math.cos(theaterLat) * Math.cos(theaterLng - userLng) + Math.sin(userLat) * Math.sin(theaterLat));
+}
+
+// async function getTheaterInfo(theaters) {
+//   const screenInfo = [];
+//   for (let i = 0; i < theaters.length; i++){
+//     var params = {
+//       TableName: "Cinemas",
+//       Key: {
+//         "name": theaters[i]
+//       }
+//     }
+//     var res = await docClient.get(params).promise();
+//     screenInfo.push(JSON.stringify(res.Item));
+//   }
+//   return screenInfo;
+// }
 
 function welcomeMessage() {
   var msg = {
@@ -235,17 +282,15 @@ function setTimeMessage() {
     "type": "text",
     "text": "何時くらいに観に行きますか？下のボタンから選んでね。",
     "quickReply": {
-      "items" : [
-        {
-          "type": "action",
-          "action": {
-            "type" : "datetimepicker",
-            "label": "Select date",
-            "data": "datePick",
-            "mode": "time"
-          }
+      "items": [{
+        "type": "action",
+        "action": {
+          "type": "datetimepicker",
+          "label": "Select date",
+          "data": "datePick",
+          "mode": "time"
         }
-      ]
+      }]
     }
   };
   return msg;
@@ -256,17 +301,15 @@ function resetTimeMessage() {
     "type": "text",
     "text": "ごめんなさい!時間は下のボタンから選んでね。",
     "quickReply": {
-      "items" : [
-        {
-          "type": "action",
-          "action": {
-            "type" : "datetimepicker",
-            "label": "Select date",
-            "data": "datePick",
-            "mode": "time"
-          }
+      "items": [{
+        "type": "action",
+        "action": {
+          "type": "datetimepicker",
+          "label": "Select date",
+          "data": "datePick",
+          "mode": "time"
         }
-      ]
+      }]
     }
   };
   return msg;
@@ -296,18 +339,6 @@ async function replyMessage(replyToken, messages) {
     }).catch(function (error) {
       console.log('Error', error);
     });
-}
-
-async function getTheaterInfo(params){
-  var params = params
-  var res = await docClient.get(params, function (err, data) {
-    if (err) {
-      console.error("Unable to create user. Error JSON:", JSON.stringify(err, null, 2));
-    } else {
-      console.log("Created user:", JSON.stringify(data, null, 2));
-    }
-  }).promise();
-  console.log(res);
 }
 
 async function createUser(userId) {
@@ -351,7 +382,7 @@ async function updateUser(keyParams, expAtr) {
     Key: keyParams,
     UpdateExpression: "set situation = :sit, lng = :lng, lat = :lat, place = :plc, displayResults = :dir, results = :rel, scheduledTime = :sct",
     ExpressionAttributeValues: expAtr,
-    ReturnValues:"UPDATED_NEW"
+    ReturnValues: "UPDATED_NEW"
   };
   await docClient.update(params, function (err, data) {
     if (err) {
