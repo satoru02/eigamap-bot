@@ -6,7 +6,6 @@ const AWS = require("aws-sdk");
 const docClient = new AWS.DynamoDB.DocumentClient();
 const googleKey = process.env.GOOGLE_API_KEY;
 const fs = require('fs');
-const { LexRuntime } = require('aws-sdk');
 const raw = fs.readFileSync('geodata.json');
 const theaters = JSON.parse(raw);
 const bot = linebot({
@@ -17,6 +16,13 @@ const bot = linebot({
 
 AWS.config.update({
   region: 'ap-northeast-1'
+});
+
+const tmdbAxios = axios.create({
+  withCredentials: false,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
 module.exports.main = async (event) => {
@@ -68,7 +74,7 @@ module.exports.main = async (event) => {
 
         var keyParams = {
           "user_id": user.user_id,
-        }
+        };
 
         var expAtr = {
           ":sit": "address",
@@ -78,7 +84,7 @@ module.exports.main = async (event) => {
           ":sct": "",
           ":dir": 0,
           ":rel": 0,
-        }
+        };
         await updateUser(keyParams, expAtr);
 
         var location = new Object();
@@ -88,7 +94,6 @@ module.exports.main = async (event) => {
           destination = eventBody.message.text.replace(/\r?\n/g, " ");
           location = await getLocation(destination);
           if (typeof (location) == "object") {
-            destination = location;
             searchStatus = "OK";
           } else {
             searchStatus = location;
@@ -103,7 +108,7 @@ module.exports.main = async (event) => {
         if (searchStatus == "OK" || searchStatus == "LINE_LOCATION") {
           var keyParams = {
             "user_id": user.user_id,
-          }
+          };
           var expAtr = {
             ":sit": "time",
             ":lng": location.lng,
@@ -112,7 +117,7 @@ module.exports.main = async (event) => {
             ":sct": "",
             ":dir": 0,
             ":rel": 0
-          }
+          };
           await updateUser(keyParams, expAtr);
           var setTimeMsg = setTimeMessage();
           messages.push(setTimeMsg);
@@ -133,7 +138,7 @@ module.exports.main = async (event) => {
         } else if (eventBody.type == "postback") {
           var keyParams = {
             "user_id": user.user_id,
-          }
+          };
           var expAtr = {
             ":sit": "searched",
             ":sct": eventBody.postback.params.time,
@@ -142,52 +147,63 @@ module.exports.main = async (event) => {
             ":plc": user.place,
             ":dir": 0,
             ":rel": 0
-          }
+          };
           await updateUser(keyParams, expAtr);
         }
-        // 3.各映画館の上映情報から、当日のeventBody.postback.params.time以降の上映時間をflex messageで表示。
-        // 4.それ以外の時間の上映情報はmoreで表示。(DB叩かなくていい)
-        // 5.範囲を広げる場合は、2に戻る。
-        var searchLists = searchTheaters(user);
-        const screenInfo = [];
-        for (let i = 0; i < searchLists.length; i++){
-          var params = {
-            TableName: "Cinemas",
-            Key: {
-              "name": searchLists[i]
-            }
-          }
-          var res = await docClient.get(params).promise();
-          screenInfo.push(JSON.stringify(res.Item));
-        }
-        console.log(screenInfo);
 
-        // var ret1 = getPlace(location.lat,location.lng,keyword);
-        // if(typeof(ret1) == "object"){
-        //   placeList = ret1;
-        //   searchStatus = "OK";
-        // } else {
-        //   searchStatus = ret1;
-        // }
-        // if(searchStatus == "OK"){
-        //   setSearchResult(userRow, placeList);
-        //   setUserStatus(userRow, "searched");
-        //   var msg1 = searchFinishMessage(userRow);
-        //   messages.push(msg1);
-        //   var msg2 = placesMessage(userRow);
-        //   messages.push(msg2);
-        // } else if(searchStatus == "ZERO_RESULTS") {
-        //   var msg1 = noTheaterMessage(userRow);
-        //   messages.push(msg1);
-        //   //最初に戻る
-        //   setUserStatus(userRow, "address");
-        // } else {
-        //    var msg1 = googleErrorMessage("【Places API】", searchStatus);
-        //    messages.push(msg1);
-        //   //最初に戻る
-        //    setUserStatus(userRow, "address");
-        // }
-        // break;
+        // -> fix
+        var searchLists = searchTheaters(user);
+        var screenInfo = [];
+        if(searchLists.length > 0){
+          // -> searchLists.lengthの数（デフォルト->5）を指定する。
+          var lists = searchLists.slice(0,4);
+          for (let i = 0; i < lists.length; i++){
+            var params = {
+              TableName: "Cinemas",
+              Key: {
+                "name": lists[i]
+              }
+            };
+            var res = await docClient.get(params).promise();
+            screenInfo.push(JSON.stringify(res.Item));
+          }
+
+          var keyParams = {
+            "user_id": user.user_id,
+          };
+
+          var expAtr = {
+            ":sit": "searched",
+            ":sct": eventBody.postback.params.time,
+            ":lng": user.lng,
+            ":lat": user.lat,
+            ":plc": user.place,
+            ":dir": 0,
+            ":rel": screenInfo.length
+          };
+          await updateUser(keyParams, expAtr);
+          var finishMsg = searchFinishMessage(user);
+          var placesMsg = theatersMessage(screenInfo, user.scheduledTime);
+          messages.push(placesMsg,finishMsg);
+        } else {
+          var keyParams = {
+            "user_id": user.user_id,
+          };
+          var expAtr = {
+            ":sit": "address",
+            ":lng": "",
+            ":lat": "",
+            ":plc": "",
+            ":sct": "",
+            ":dir": 0,
+            ":rel": 0,
+          };
+          await updateUser(keyParams, expAtr);
+          var noTheaterMsg = noTheaterMessage();
+          var addressMsg = setAddressMessage();
+          messages.push(noTheaterMsg,addressMsg);
+        }
+        break;
     }
     return messages;
   }
@@ -238,6 +254,7 @@ function distance(userLat, userLng, theaterLat, theaterLng, radius) {
   return 6371 * Math.acos(Math.cos(userLat) * Math.cos(theaterLat) * Math.cos(theaterLng - userLng) + Math.sin(userLat) * Math.sin(theaterLat));
 }
 
+// -> fix
 // async function getTheaterInfo(theaters) {
 //   const screenInfo = [];
 //   for (let i = 0; i < theaters.length; i++){
@@ -270,11 +287,11 @@ function setAddressMessage() {
 }
 
 function resetAddressMessage() {
-  var text = {
+  var msg = {
     "type": "text",
     "text": "ごめんなさい！目的地の再入力をお願いします。"
   };
-  return text;
+  return msg;
 }
 
 function setTimeMessage() {
@@ -316,21 +333,54 @@ function resetTimeMessage() {
 }
 
 
-// function noTheaterMessage(row) {
-//   return msg;
-// }
+function noTheaterMessage() {
+  var msg = {
+    "type": "text",
+    "text": "ごめんなさい！目的の時間と場所からは映画館が見つかりません。場所を変えてみてね。"
+  };
+  return msg;
+}
 
-// function searchFinishMessage(row) {
-//   return msg;
-// }
+function searchFinishMessage(user) {
+  var msg = {
+    "type": "text",
+    "text": "お待たせしました！今から行ける映画情報はこちらです。"+ "\n\n" +
+      "検索場所：" + user.place + "\n" +
+      "時間：" + user.scheduledTime + "\n\n" +
+      "【検索結果】" + user.results + "件\n\n"
+      // "検索するジャンルを変更したい場合は、新しいジャンルをつぶやいてくださいね" + EMOJI_OK
+  };
 
-// function theatersMessage(row) {
-//   return msg;
-// }
+  return msg;
+}
 
-// function googleErrorMessage(row) {
-// //   return msg;
-// }
+function theatersMessage(theaters, time) {
+  const bubbleList = new Array();
+  var theaterInfo = processingInfo(theaters, time);
+  // theaterInfo.slice()
+  // tmdbAxios.get(`${baseURL}/search/${name}?api_key=${process.env.TMDB_API_KEY}&language=${language}&query=${query}/&page=${page}&include_adult=false`)
+}
+
+function processingInfo(theaters, time){
+  const movieLists = new Array();
+  var movieTitle;
+  for(var i = 0; i < theaters.length; i++){
+    var theater = JSON.parse(theaters[i]);
+    for(var n = 0; n < theater.cnm_info[0].length; n++){
+      const targetMovie = theater.cnm_info[0][n].props[0][0].find((movie) => {
+        return movie.time > time;
+      });
+      if(typeof targetMovie !== "undefined"){
+        var movieTitle = { "theater": theater.name, "title": theater.cnm_info[0][n].title, "time": targetMovie.time };
+        movieLists.push(movieTitle);
+      }
+    }
+  }
+  return movieLists;
+}
+
+function googleErrorMessage(row, err) {
+}
 
 async function replyMessage(replyToken, messages) {
   await bot.reply(replyToken, messages)
