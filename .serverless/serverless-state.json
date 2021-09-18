@@ -12,7 +12,8 @@
         "CHANNEL_ID": "1656403033",
         "CHANNEL_SECRET": "50ae132115161378abddf2ef9b59d96d",
         "CHANNEL_ACCESS_TOKEN": "z4YpgMVWFsvXymiVqKBCTq/fk6HVC/ssrgXQOi/OZ/GAj35oMALbxh4VtN7rCdsfICDiAM5iqGtYZl9MybHXBuJES3wFB2FhglY1yMS+reG1MgjBpwgpgiSnKs4Bm6no+9M0NWw66GiDwzAcvgcZ5gdB04t89/1O/w1cDnyilFU=",
-        "GOOGLE_API_KEY": "AIzaSyBoRJ407cW1_Ma9wCyTJI7PBPyroHJqA04"
+        "GOOGLE_API_KEY": "AIzaSyBoRJ407cW1_Ma9wCyTJI7PBPyroHJqA04",
+        "TMDB_API_KEY": "027bb6fe581e21ea82ac5d200705f653"
       },
       "stage": "dev",
       "region": "ap-northeast-1",
@@ -180,7 +181,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/eigamap-bot/dev/1631894512663-2021-09-17T16:01:52.663Z/eigamap-bot.zip"
+                "S3Key": "serverless/eigamap-bot/dev/1631969506096-2021-09-18T12:51:46.096Z/eigamap-bot.zip"
               },
               "Handler": "handler.main",
               "Runtime": "nodejs14.x",
@@ -192,7 +193,8 @@
                   "CHANNEL_ID": "1656403033",
                   "CHANNEL_SECRET": "50ae132115161378abddf2ef9b59d96d",
                   "CHANNEL_ACCESS_TOKEN": "z4YpgMVWFsvXymiVqKBCTq/fk6HVC/ssrgXQOi/OZ/GAj35oMALbxh4VtN7rCdsfICDiAM5iqGtYZl9MybHXBuJES3wFB2FhglY1yMS+reG1MgjBpwgpgiSnKs4Bm6no+9M0NWw66GiDwzAcvgcZ5gdB04t89/1O/w1cDnyilFU=",
-                  "GOOGLE_API_KEY": "AIzaSyBoRJ407cW1_Ma9wCyTJI7PBPyroHJqA04"
+                  "GOOGLE_API_KEY": "AIzaSyBoRJ407cW1_Ma9wCyTJI7PBPyroHJqA04",
+                  "TMDB_API_KEY": "027bb6fe581e21ea82ac5d200705f653"
                 }
               },
               "Role": {
@@ -206,14 +208,14 @@
               "MainLogGroup"
             ]
           },
-          "MainLambdaVersionKdReurBvEtiklOoaZGt84qY8R2C9UmLKFkCvYIwtjE": {
+          "MainLambdaVersioncHZyFwsUXCBrgnz85mMx1QMLxLmfoBDmZucpElHE": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "MainLambdaFunction"
               },
-              "CodeSha256": "dfxXSM6KuadAK4tu/kSnj/uGC38wBk5J3Dw8nLiQM5s="
+              "CodeSha256": "vjul5pMeqVnbIZpUknG3wsgKalNTo/xA8RjnMLXqzuI="
             }
           },
           "HttpApi": {
@@ -321,7 +323,7 @@
           "MainLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "MainLambdaVersionKdReurBvEtiklOoaZGt84qY8R2C9UmLKFkCvYIwtjE"
+              "Ref": "MainLambdaVersioncHZyFwsUXCBrgnz85mMx1QMLxLmfoBDmZucpElHE"
             },
             "Export": {
               "Name": "sls-eigamap-bot-dev-MainLambdaFunctionQualifiedArn"
@@ -467,7 +469,7 @@
         "timeout": 6,
         "runtime": "nodejs14.x",
         "vpc": {},
-        "versionLogicalId": "MainLambdaVersionKdReurBvEtiklOoaZGt84qY8R2C9UmLKFkCvYIwtjE"
+        "versionLogicalId": "MainLambdaVersioncHZyFwsUXCBrgnz85mMx1QMLxLmfoBDmZucpElHE"
       }
     },
     "configValidationMode": "warn",
@@ -489,7 +491,7 @@
     "artifact": "/Users/sugiwaka/eigamap-bot/.serverless/eigamap-bot.zip"
   },
   "package": {
-    "artifactDirectoryName": "serverless/eigamap-bot/dev/1631894512663-2021-09-17T16:01:52.663Z",
+    "artifactDirectoryName": "serverless/eigamap-bot/dev/1631969506096-2021-09-18T12:51:46.096Z",
     "artifact": "eigamap-bot.zip"
   }
 }

@@ -10,6 +10,7 @@ provider:
     CHANNEL_SECRET: ${file(env.yml):CHANNEL_SECRET}
     CHANNEL_ACCESS_TOKEN: ${file(env.yml):CHANNEL_ACCESS_TOKEN}
     GOOGLE_API_KEY: ${file(env.yml):GOOGLE_API_KEY}
+    TMDB_API_KEY: ${file(env.yml):TMDB_API_KEY}
 
   stage: dev
   region: ap-northeast-1
