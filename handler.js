@@ -151,21 +151,18 @@ module.exports.main = async (event) => {
           await updateUser(keyParams, expAtr);
         }
 
-        // -> fix
-        var searchLists = searchTheaters(user);
-        var screenInfo = [];
-        if(searchLists.length > 0){
-          // -> searchLists.lengthの数（デフォルト->5）を指定する。
-          var lists = searchLists.slice(0,4);
-          for (let i = 0; i < lists.length; i++){
+        var nearByTheaters = searchTheaters(user.lat, user.lng);
+        var theatersInfo = [];
+        if (nearByTheaters.length > 0) {
+          for (let i = 0; i < nearByTheaters.length; i++) {
             var params = {
               TableName: "Cinemas",
               Key: {
-                "name": lists[i]
+                "name": nearByTheaters[i]
               }
             };
             var res = await docClient.get(params).promise();
-            screenInfo.push(JSON.stringify(res.Item));
+            theatersInfo.push(JSON.stringify(res.Item));
           }
 
           var keyParams = {
@@ -179,16 +176,26 @@ module.exports.main = async (event) => {
             ":lat": user.lat,
             ":plc": user.place,
             ":dir": 0,
-            ":rel": screenInfo.length
+            ":rel": theatersInfo.length
           };
-　　　　　await updateUser(keyParams, expAtr)
-          var finishMsg = searchFinishMessage(user.place, eventBody.postback.params.time, searchLists.length);
-          var placesMsg = await theatersMessage(screenInfo, user.scheduledTime);
-          messages.push(finishMsg,placesMsg);
+          await updateUser(keyParams, expAtr);
+
+          var moviesInfo = processingInfo(theatersInfo, eventBody.postback.params.time);
+
+          if(moviesInfo.length > 0){
+            var finishMsg = searchFinishMessage(user.place, eventBody.postback.params.time, nearByTheaters.length);
+            var placesMsg = await theatersMessage(moviesInfo);
+            messages.push(finishMsg, placesMsg);
+          } else {
+            var noTheaterMsg = noTheaterMessage();
+            messages.push(noTheaterMsg);
+          }
+
         } else {
           var keyParams = {
             "user_id": user.user_id,
           };
+
           var expAtr = {
             ":sit": "address",
             ":lng": "",
@@ -201,7 +208,7 @@ module.exports.main = async (event) => {
           await updateUser(keyParams, expAtr);
           var noTheaterMsg = noTheaterMessage();
           var addressMsg = setAddressMessage();
-          messages.push(noTheaterMsg,addressMsg);
+          messages.push(noTheaterMsg, addressMsg);
         }
         break;
     }
@@ -234,17 +241,18 @@ async function getLocation(address) {
   return location;
 }
 
-function searchTheaters(user) {
-  const theaterList = [];
+function searchTheaters(lat,lng) {
+  const theaterLists = [];
   const R = Math.PI / 180;
   theaters.features.forEach(theater => {
     var theaterLng = theater.geometry.coordinates[0];
     var theaterLat = theater.geometry.coordinates[1];
-    if (distance(user.lat, user.lng, theaterLat, theaterLng, R) < 20) {
-      theaterList.push(theater.properties.title);
+    // inside 20km;
+    if (distance(lat, lng, theaterLat, theaterLng, R) < 20) {
+      theaterLists.push(theater.properties.title);
     }
   });
-  return theaterList;
+  return theaterLists;
 }
 
 function distance(userLat, userLng, theaterLat, theaterLng, radius) {
@@ -337,7 +345,7 @@ function resetTimeMessage() {
 function noTheaterMessage() {
   var msg = {
     "type": "text",
-    "text": "ごめんなさい！目的の時間と場所からは映画館が見つかりません。場所を変えてみてね。"
+    "text": "ごめんなさい！目的の時間と場所からは映画館が見つかりません。場所と時間を変えてみてね。"
   };
   return msg;
 }
@@ -345,40 +353,28 @@ function noTheaterMessage() {
 function searchFinishMessage(place, time, searchResults) {
   var msg = {
     "type": "text",
-    "text": "お待たせしました！今から行ける映画情報はこちらです。"+ "\n\n" +
+    "text": "お待たせしました！今から行ける映画情報はこちらです。" + "\n\n" +
       "検索場所：" + place + "\n" +
       "目的の時間：" + time + "\n\n" +
       "【検索結果】" + searchResults + "件\n\n"
-      // "検索するジャンルを変更したい場合は、新しいジャンルをつぶやいてくださいね" + EMOJI_OK
+    // "検索するジャンルを変更したい場合は、新しいジャンルをつぶやいてくださいね" + EMOJI_OK
   };
-
   return msg;
 }
 
-async function theatersMessage(theaters, time) {
+async function theatersMessage(moviesInfo) {
   const bubbleList = new Array();
-  var theaterInfo = processingInfo(theaters, time);
-
-  // var randInfo = heaterInfoからランダムに5つ取得
-  // theaterInfoからランダムに5つ取得
-  // 重複削除
-  // heaterInfo[i].titleの余計な（imaxとか削除）
-  // 次の動線　-> flexに追加
-  // flex -> 映画館/住所/リンク
-  // 時間取得の部分修正
-
-  for(var i = 0; i < theaterInfo.slice(0,4).length; i++){
+  //　fix -> moviesInfoから取得数
+  for (var i = 0; i < moviesInfo.slice(0, 8).length; i++) {
     var movieImage;
-
-    const image_path = await tmdbAxios.get(encodeURI(`https://api.themoviedb.org/3/search/multi?api_key=${process.env.TMDB_API_KEY}&language=ja&query=${theaterInfo[i].title}&page=1&include_adult=false`))
-    .then((res)=>{
-      console.log(res.data.results[0].poster_path);
-      return res.data.results[0].poster_path }
-      )
-    .catch((err)=>{ console.log(err);
-        return "ZERO_RESULTS";});
-
-    if(image_path !== "ZERO_RESULTS") {
+    const image_path = await tmdbAxios.get(encodeURI(`https://api.themoviedb.org/3/search/multi?api_key=${process.env.TMDB_API_KEY}&language=ja&query=${moviesInfo[i].mvTitle}&page=1&include_adult=false`))
+      .then((res) => {
+        return res.data.results[0].poster_path;
+      })
+      .catch((err) => {
+        return "ZERO_RESULTS";
+      });
+    if (image_path !== "ZERO_RESULTS") {
       movieImage = `https://image.tmdb.org/t/p/w500/${image_path}`;
     } else {
       movieImage = `https://picsum.photos/200/300`;
@@ -389,8 +385,7 @@ async function theatersMessage(theaters, time) {
       "body": {
         "type": "box",
         "layout": "vertical",
-        "contents": [
-          {
+        "contents": [{
             "type": "image",
             "url": movieImage,
             "size": "full",
@@ -401,55 +396,52 @@ async function theatersMessage(theaters, time) {
           {
             "type": "box",
             "layout": "vertical",
-            "contents": [
-              {
+            "contents": [{
                 "type": "box",
                 "layout": "vertical",
-                "contents": [
-                  {
-                    "type": "text",
-                    "text": theaterInfo[i].title,
-                    "size": "xl",
-                    "color": "#ffffff",
-                    "weight": "bold"
-                  }
-                ]
+                "contents": [{
+                  "type": "text",
+                  "text": moviesInfo[i].mvTitle,
+                  "size": "xxl",
+                  "color": "#ffffff",
+                  "weight": "bold",
+                  "wrap": true
+                }]
               },
               {
                 "type": "box",
                 "layout": "baseline",
-                "contents": [
-                  {
-                    "type": "text",
-                    "text": "¥35,800",
-                    "color": "#ebebeb",
-                    "size": "sm",
-                    "flex": 0
-                  }
-                ],
-                "spacing": "lg"
+                "contents": [{
+                  "type": "text",
+                  "text": moviesInfo[i].mvTheater,
+                  "color": "#ffffff",
+                  "size": "lg",
+                  "flex": 0,
+                  "wrap": true
+                }],
+                "spacing": "lg",
+                "margin": "xl"
               },
               {
                 "type": "box",
                 "layout": "vertical",
-                "contents": [
-                  {
+                "contents": [{
                     "type": "filler"
                   },
                   {
                     "type": "box",
                     "layout": "baseline",
-                    "contents": [
-                      {
+                    "contents": [{
                         "type": "filler"
                       },
                       {
                         "type": "text",
-                        "text": `${theaterInfo[i].time} 上映開始`,
+                        "text": `${moviesInfo[i].mvTime} 上映開始`,
                         "color": "#ffffff",
                         "flex": 0,
                         "offsetTop": "-2px",
-                        "size": "lg"
+                        "size": "lg",
+                        "weight": "bold",
                       },
                       {
                         "type": "filler"
@@ -480,16 +472,14 @@ async function theatersMessage(theaters, time) {
           {
             "type": "box",
             "layout": "vertical",
-            "contents": [
-              {
-                "type": "text",
-                "text": "New",
-                "color": "#ffffff",
-                "align": "center",
-                "size": "xs",
-                "offsetTop": "3px"
-              }
-            ],
+            "contents": [{
+              "type": "text",
+              "text": "New",
+              "color": "#ffffff",
+              "align": "center",
+              "size": "xs",
+              "offsetTop": "3px"
+            }],
             "position": "absolute",
             "cornerRadius": "20px",
             "offsetTop": "18px",
@@ -501,8 +491,8 @@ async function theatersMessage(theaters, time) {
         ],
         "paddingAll": "0px"
       }
-   };
-   bubbleList.push(bubbleMsg);
+    };
+    bubbleList.push(bubbleMsg);
   }
 
   var flexMsg = {
@@ -530,26 +520,30 @@ async function theatersMessage(theaters, time) {
 //     return image_path;
 // }
 
-function processingInfo(theaters, time){
-  const movieLists = new Array();
-  var movieTitle;
-  for(var i = 0; i < theaters.length; i++){
-    var theater = JSON.parse(theaters[i]);
-    for(var n = 0; n < theater.cnm_info[0].length; n++){
+function processingInfo(theatersInfo, time) {
+  const moviesInfo = new Array();
+  var movieInfo;
+  for (var i = 0; i < theatersInfo.length; i++) {
+    var theater = JSON.parse(theatersInfo[i]);
+    for (var n = 0; n < theater.cnm_info[0].length; n++) {
       const targetMovie = theater.cnm_info[0][n].props[0][0].find((movie) => {
         return movie.time > time;
       });
-      if(typeof targetMovie !== "undefined"){
-        var movieTitle = { "theater": theater.name, "title": theater.cnm_info[0][n].title, "time": targetMovie.time };
-        movieLists.push(movieTitle);
+      if (typeof targetMovie !== "undefined") {
+        var movieInfo = {
+          "mvTheater": theater.name,
+          "mvTitle": theater.cnm_info[0][n].title,
+          "mvTime": targetMovie.time
+        };
+        moviesInfo.push(movieInfo);
       }
     }
   }
-  return movieLists;
+  console.log(moviesInfo)
+  return moviesInfo;
 }
 
-function googleErrorMessage(row, err) {
-}
+function googleErrorMessage(row, err) {}
 
 async function replyMessage(replyToken, messages) {
   await bot.reply(replyToken, messages)
