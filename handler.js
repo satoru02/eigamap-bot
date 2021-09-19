@@ -181,10 +181,10 @@ module.exports.main = async (event) => {
             ":dir": 0,
             ":rel": screenInfo.length
           };
-          await updateUser(keyParams, expAtr);
-          var finishMsg = searchFinishMessage(user);
-          var placesMsg = theatersMessage(screenInfo, user.scheduledTime);
-          messages.push(placesMsg,finishMsg);
+　　　　　await updateUser(keyParams, expAtr)
+          var finishMsg = searchFinishMessage(user.place, eventBody.postback.params.time, searchLists.length);
+          var placesMsg = await theatersMessage(screenInfo, user.scheduledTime);
+          messages.push(finishMsg,placesMsg);
         } else {
           var keyParams = {
             "user_id": user.user_id,
@@ -228,6 +228,7 @@ async function getLocation(address) {
       return location;
     })
     .catch((err) => {
+      console.log(err);
       return "ZERO_RESULTS";
     });
   return location;
@@ -281,7 +282,7 @@ function welcomeMessage() {
 function setAddressMessage() {
   var msg = {
     "type": "text",
-    "text": "それでは、お店を調べたい場所の「住所」を教えてね！"
+    "text": "それでは、目的の場所の「住所」を教えてね！"
   };
   return msg;
 }
@@ -341,25 +342,193 @@ function noTheaterMessage() {
   return msg;
 }
 
-function searchFinishMessage(user) {
+function searchFinishMessage(place, time, searchResults) {
   var msg = {
     "type": "text",
     "text": "お待たせしました！今から行ける映画情報はこちらです。"+ "\n\n" +
-      "検索場所：" + user.place + "\n" +
-      "時間：" + user.scheduledTime + "\n\n" +
-      "【検索結果】" + user.results + "件\n\n"
+      "検索場所：" + place + "\n" +
+      "目的の時間：" + time + "\n\n" +
+      "【検索結果】" + searchResults + "件\n\n"
       // "検索するジャンルを変更したい場合は、新しいジャンルをつぶやいてくださいね" + EMOJI_OK
   };
 
   return msg;
 }
 
-function theatersMessage(theaters, time) {
+async function theatersMessage(theaters, time) {
   const bubbleList = new Array();
   var theaterInfo = processingInfo(theaters, time);
-  // theaterInfo.slice()
-  // tmdbAxios.get(`${baseURL}/search/${name}?api_key=${process.env.TMDB_API_KEY}&language=${language}&query=${query}/&page=${page}&include_adult=false`)
+
+  // var randInfo = heaterInfoからランダムに5つ取得
+  // theaterInfoからランダムに5つ取得
+  // 重複削除
+  // heaterInfo[i].titleの余計な（imaxとか削除）
+  // 次の動線　-> flexに追加
+  // flex -> 映画館/住所/リンク
+  // 時間取得の部分修正
+
+  for(var i = 0; i < theaterInfo.slice(0,4).length; i++){
+    var movieImage;
+
+    const image_path = await tmdbAxios.get(encodeURI(`https://api.themoviedb.org/3/search/multi?api_key=${process.env.TMDB_API_KEY}&language=ja&query=${theaterInfo[i].title}&page=1&include_adult=false`))
+    .then((res)=>{
+      console.log(res.data.results[0].poster_path);
+      return res.data.results[0].poster_path }
+      )
+    .catch((err)=>{ console.log(err);
+        return "ZERO_RESULTS";});
+
+    if(image_path !== "ZERO_RESULTS") {
+      movieImage = `https://image.tmdb.org/t/p/w500/${image_path}`;
+    } else {
+      movieImage = `https://picsum.photos/200/300`;
+    }
+
+    var bubbleMsg = {
+      "type": "bubble",
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "image",
+            "url": movieImage,
+            "size": "full",
+            "aspectMode": "cover",
+            "aspectRatio": "2:3",
+            "gravity": "top"
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+              {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                  {
+                    "type": "text",
+                    "text": theaterInfo[i].title,
+                    "size": "xl",
+                    "color": "#ffffff",
+                    "weight": "bold"
+                  }
+                ]
+              },
+              {
+                "type": "box",
+                "layout": "baseline",
+                "contents": [
+                  {
+                    "type": "text",
+                    "text": "¥35,800",
+                    "color": "#ebebeb",
+                    "size": "sm",
+                    "flex": 0
+                  }
+                ],
+                "spacing": "lg"
+              },
+              {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                  {
+                    "type": "filler"
+                  },
+                  {
+                    "type": "box",
+                    "layout": "baseline",
+                    "contents": [
+                      {
+                        "type": "filler"
+                      },
+                      {
+                        "type": "text",
+                        "text": `${theaterInfo[i].time} 上映開始`,
+                        "color": "#ffffff",
+                        "flex": 0,
+                        "offsetTop": "-2px",
+                        "size": "lg"
+                      },
+                      {
+                        "type": "filler"
+                      }
+                    ],
+                    "spacing": "sm"
+                  },
+                  {
+                    "type": "filler"
+                  }
+                ],
+                "borderWidth": "1px",
+                "cornerRadius": "4px",
+                "spacing": "sm",
+                "borderColor": "#ffffff",
+                "margin": "xxl",
+                "height": "40px"
+              }
+            ],
+            "position": "absolute",
+            "offsetBottom": "0px",
+            "offsetStart": "0px",
+            "offsetEnd": "0px",
+            "backgroundColor": "#00000Acc",
+            "paddingAll": "20px",
+            "paddingTop": "18px"
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+              {
+                "type": "text",
+                "text": "New",
+                "color": "#ffffff",
+                "align": "center",
+                "size": "xs",
+                "offsetTop": "3px"
+              }
+            ],
+            "position": "absolute",
+            "cornerRadius": "20px",
+            "offsetTop": "18px",
+            "backgroundColor": "#ff334b",
+            "offsetStart": "18px",
+            "height": "25px",
+            "width": "53px"
+          }
+        ],
+        "paddingAll": "0px"
+      }
+   };
+   bubbleList.push(bubbleMsg);
+  }
+
+  var flexMsg = {
+    "type": "flex",
+    "altText": "近くの映画上映情報",
+    "contents": {
+      "type": "carousel",
+      "contents": bubbleList
+    }
+  };
+  return flexMsg;
 }
+
+// async function getTmdbImage(){
+//   const image_path = await tmdbAxios.get(`https://api.themoviedb.org/3/search/multi?api_key=${process.env.TMDB_API_KEY}&language=ja&query=${query}&page=1&include_adult=false`)
+//     .then((res) =>
+//       { return res.data.results.poster_path }
+//     )
+//     .catch((err) =>
+//       {
+//         console.log(err);
+//         return "ZERO_RESULTS";
+//       }
+//     );
+//     return image_path;
+// }
 
 function processingInfo(theaters, time){
   const movieLists = new Array();
@@ -434,13 +603,15 @@ async function updateUser(keyParams, expAtr) {
     ExpressionAttributeValues: expAtr,
     ReturnValues: "UPDATED_NEW"
   };
-  await docClient.update(params, function (err, data) {
+  var res = await docClient.update(params, function (err, data) {
     if (err) {
       console.error("Unable to update user. Error JSON:", JSON.stringify(err, null, 2));
     } else {
       console.log("Updated user:", JSON.stringify(data, null, 2));
     }
   }).promise();
+  var user = JSON.stringify(res.Item);
+  return user;
 }
 
 async function deleteUser(userId) {
