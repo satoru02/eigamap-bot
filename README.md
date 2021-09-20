@@ -1,6 +1,6 @@
 # となりの映画館（eigamap-bot）
 <div align="center">
-<!--   <img src="https://user-images.githubusercontent.com/40885517/131468422-fe253152-b3e5-4db5-b8d9-78777c42f6e9.png" alt="eigamap" title="eigamap"> -->
+  <img src="https://user-images.githubusercontent.com/40885517/133967684-ace59e32-38eb-4f4f-9f43-b8aed5f5f6e2.jpg" alt="eigamap-bot" title="となりの映画館">
 </div>
 
 # Description
