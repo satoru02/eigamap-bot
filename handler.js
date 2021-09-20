@@ -80,6 +80,7 @@ module.exports.main = async (event) => {
       case "address":
         var messageType = eventBody.message.type;
         if (messageType != "text" && messageType != "location") {
+          console.log(messageType)
           return messages;
         }
         var keyParams = {
@@ -129,7 +130,7 @@ module.exports.main = async (event) => {
           var resetAddMsg = resetAddressMessage();
           messages.push(resetAddMsg);
         } else {
-          var errorMsg = googleErrorMessage("geocoding API", searchStatus);
+          var errorMsg = resetAddressMessage()
           messages.push(errorMsg);
         }
         break;
@@ -342,7 +343,7 @@ function resetAddressMessage() {
     "text": "ごめんなさい！入力してもらった場所の近くに、映画館が見つかりませんでした。目的地の再入力をお願いします$",
     "emojis": [
       {
-        "index": 52,
+        "index": 51,
         "productId": "5ac1bfd5040ab15980c9b435",
         "emojiId": "024"
       }
@@ -430,8 +431,8 @@ function searchFinishMessage(place, time, searchResults) {
       "検索場所：" + place + "\n" +
       "目的の時間：" + time + "\n" +
       "検索結果：" + searchResults + "件\n\n" +
-      "検索結果をさらに表示したい場合は、水色のMOREボタンを押してみてください。" + "\n\n" +
-      "目的地を変えて検索したい場合は、ピンク色のRESTARTボタンを押してみてください。",
+      "①検索結果をさらに表示したい場合は、水色のMOREボタンを押してみてください。" + "\n\n" +
+      "②目的地を変えて検索したい場合は、ピンク色のRESTARTボタンを押してみてください。",
     "emojis": [
       {
         "index": 25,
