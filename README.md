@@ -1,1 +1,1 @@
-# line-bot-shop-eating-ranking
+# となりの映画館
