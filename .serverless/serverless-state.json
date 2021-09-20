@@ -181,7 +181,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/eigamap-bot/dev/1632066637653-2021-09-19T15:50:37.653Z/eigamap-bot.zip"
+                "S3Key": "serverless/eigamap-bot/dev/1632101296177-2021-09-20T01:28:16.177Z/eigamap-bot.zip"
               },
               "Handler": "handler.main",
               "Runtime": "nodejs14.x",
@@ -208,14 +208,14 @@
               "MainLogGroup"
             ]
           },
-          "MainLambdaVersionWAeePS89WtJgFgGt7MquS4iHFT71WlfSDyBdu9Wtso": {
+          "MainLambdaVersion3lcWw8PBVybTIHFWUD9ZP6oqJlSZKn355v7Aschr5k": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "MainLambdaFunction"
               },
-              "CodeSha256": "h5/WXiRip9D5+Iz3sAzmvymOjIn/aMQFWfe+K3NShcw="
+              "CodeSha256": "wV/RdbV1vSGdW4aGCJtPMyk5H+azOwcELfgMvUU3QVU="
             }
           },
           "HttpApi": {
@@ -323,7 +323,7 @@
           "MainLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "MainLambdaVersionWAeePS89WtJgFgGt7MquS4iHFT71WlfSDyBdu9Wtso"
+              "Ref": "MainLambdaVersion3lcWw8PBVybTIHFWUD9ZP6oqJlSZKn355v7Aschr5k"
             },
             "Export": {
               "Name": "sls-eigamap-bot-dev-MainLambdaFunctionQualifiedArn"
@@ -469,7 +469,7 @@
         "timeout": 6,
         "runtime": "nodejs14.x",
         "vpc": {},
-        "versionLogicalId": "MainLambdaVersionWAeePS89WtJgFgGt7MquS4iHFT71WlfSDyBdu9Wtso"
+        "versionLogicalId": "MainLambdaVersion3lcWw8PBVybTIHFWUD9ZP6oqJlSZKn355v7Aschr5k"
       }
     },
     "configValidationMode": "warn",
@@ -491,7 +491,7 @@
     "artifact": "/Users/sugiwaka/eigamap-bot/.serverless/eigamap-bot.zip"
   },
   "package": {
-    "artifactDirectoryName": "serverless/eigamap-bot/dev/1632066637653-2021-09-19T15:50:37.653Z",
+    "artifactDirectoryName": "serverless/eigamap-bot/dev/1632101296177-2021-09-20T01:28:16.177Z",
     "artifact": "eigamap-bot.zip"
   }
 }
