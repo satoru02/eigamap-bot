@@ -15,6 +15,7 @@ It replies with appropriate information from the screening information of nearby
 
 
 ## Architecture
+![linebot-git drawio](https://user-images.githubusercontent.com/40885517/133967156-8469a838-0fc0-42cb-9e01-a71110598f5a.png)
 
 ## License
 MIT
