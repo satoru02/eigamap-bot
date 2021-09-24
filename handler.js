@@ -725,7 +725,12 @@ function setBubbleMsg(theaterName, movieName, movieTime, movieImage) {
           "width": "53px"
         }
       ],
-      "paddingAll": "0px"
+      "paddingAll": "0px",
+      "action": {
+        "type": "uri",
+        "label": "action",
+        "uri": `https://www.google.com/search?q=` + theaterName
+      }
     }
   };
   return bubbleMsg;
