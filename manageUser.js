@@ -1,10 +1,11 @@
 const AWS = require("aws-sdk");
-AWS.config.update({ region: 'ap-northeast-1' });
+AWS.config.update({
+  region: 'ap-northeast-1'
+});
 const docClient = new AWS.DynamoDB.DocumentClient();
 
-// CRUD USER by invoked
-module.exports.manageUser = async (event,context) => {
-  switch(crud){
+module.exports.manageUser = async (event, context) => {
+  switch (crud) {
     case "create":
       var params = {
         TableName: "eigabot_users",
@@ -51,7 +52,7 @@ module.exports.manageUser = async (event,context) => {
           console.log("Deleted user:", JSON.stringify(data, null, 2));
         }
       }).promise();
-    break;
+      break;
     case "update":
       var params = {
         TableName: "eigabot_users",
@@ -69,6 +70,5 @@ module.exports.manageUser = async (event,context) => {
       }).promise();
       var user = JSON.stringify(res.Item);
       return user;
-    break;
   }
-}
+};

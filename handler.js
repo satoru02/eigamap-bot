@@ -1,4 +1,5 @@
 'use strict';
+
 const linebot = require('linebot');
 const axios = require('axios');
 const AWS = require("aws-sdk");
@@ -311,7 +312,7 @@ async function theatersMessage(moviesInfo, remainInfo) {
     if (image_path !== "ZERO_RESULTS") {
       movieImage = `https://image.tmdb.org/t/p/w500/${image_path}`;
     } else {
-      movieImage = `https://picsum.photos/200/300`;
+      movieImage = `https://pic-for-eigamap.s3.ap-northeast-1.amazonaws.com/liam-mcgarry-4txHVae2MJ0-unsplash.jpg`;
     }
     var bubbleMsg = setBubbleMsg(moviesInfo[i].mvTheater, moviesInfo[i].mvTitle, moviesInfo[i].mvTime, movieImage);
     bubbleList.push(bubbleMsg);
