@@ -11,6 +11,7 @@ provider:
     CHANNEL_ACCESS_TOKEN: ${file(env.yml):CHANNEL_ACCESS_TOKEN}
     GOOGLE_API_KEY: ${file(env.yml):GOOGLE_API_KEY}
     TMDB_API_KEY: ${file(env.yml):TMDB_API_KEY}
+    S3_IMAGE: ${file(env.yml):S3_IMAGE}
 
   stage: dev
   region: ap-northeast-1

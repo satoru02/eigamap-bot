@@ -1,6 +1,6 @@
 module.exports.setMessage = async (event) => {
   function welcomeMessage() {
-    var msg = {
+    let msg = {
       "type": "text",
       "text": "はじめまして$となりの映画館です$" + "\n\n" +
         "お友達登録ありがとうございます$ このアカウントでは、あなたが今いる場所からすぐ行ける映画館の上映情報をピックアップしてお届けします$$" + "\n\n" +
@@ -46,7 +46,7 @@ module.exports.setMessage = async (event) => {
   }
 
   function setAddressMessage() {
-    var msg = {
+    let msg = {
       "type": "text",
       "text": "それでは、映画を見たい場所を教えてください$" + "\n\n" +
         "ランドマーク(目印となる場所)の名前でも検索出来ます$" + "\n\n" +
@@ -67,7 +67,7 @@ module.exports.setMessage = async (event) => {
   }
 
   function resetAddressMessage() {
-    var msg = {
+    let msg = {
       "type": "text",
       "text": "ごめんなさい！入力してもらった場所の近くに、映画館が見つかりませんでした。目的地の再入力をお願いします$",
       "emojis": [{
@@ -80,7 +80,7 @@ module.exports.setMessage = async (event) => {
   }
 
   function setTimeMessage() {
-    var msg = {
+    let msg = {
       "type": "text",
       "text": "何時くらいに観に行きますか？下のボタンから選んでください$",
       "emojis": [{
@@ -104,7 +104,7 @@ module.exports.setMessage = async (event) => {
   }
 
   function resetTimeMessage() {
-    var msg = {
+    let msg = {
       "type": "text",
       "text": "ごめんなさい!時間は下のボタンから選んでね。$",
       "emojis": [{
@@ -128,7 +128,7 @@ module.exports.setMessage = async (event) => {
   }
 
   function noTheaterMessage() {
-    var msg = {
+    let msg = {
       "type": "text",
       "text": "ごめんなさい！目的の時間と場所からは上映情報が見つかりませんでした$$" + "\n\n" + "場所と時間を変えてみてね!",
       "emojis": [{
@@ -147,7 +147,7 @@ module.exports.setMessage = async (event) => {
   }
 
   function setMoreMsg() {
-    var moreMsg = {
+    let moreMsg = {
       "type": "bubble",
       "body": {
         "type": "box",
@@ -205,7 +205,7 @@ module.exports.setMessage = async (event) => {
   }
 
   function setStartMsg() {
-    var startMsg = {
+    let startMsg = {
       "type": "bubble",
       "body": {
         "type": "box",
@@ -263,7 +263,7 @@ module.exports.setMessage = async (event) => {
   }
 
   function searchFinishMessage(place, time, searchResults) {
-    var msg = {
+    let msg = {
       "type": "text",
       "text": "お待たせしました！今から行ける映画情報はこちらです$" + "\n\n" +
         "検索場所：" + place + "\n" +
@@ -281,7 +281,7 @@ module.exports.setMessage = async (event) => {
   }
 
   function setBubbleMsg(theaterName, movieName, movieTime, movieImage) {
-    var bubbleMsg = {
+    let bubbleMsg = {
       "type": "bubble",
       "body": {
         "type": "box",
