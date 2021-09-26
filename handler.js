@@ -1,21 +1,20 @@
 'use strict';
 
-const linebot = require('linebot');
-const axios = require('axios');
 const AWS = require("aws-sdk");
-const docClient = new AWS.DynamoDB.DocumentClient();
-const googleKey = process.env.GOOGLE_API_KEY;
+const axios = require('axios');
+const linebot = require('linebot');
 const fs = require('fs');
-const raw = fs.readFileSync('geodata.json');
-const theaters = JSON.parse(raw);
+const docClient = new AWS.DynamoDB.DocumentClient();
+const rawData = fs.readFileSync('geodata.json');
+const theaters = JSON.parse(rawData);
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const S3_IMAGE = process.env.S3_IMAGE;
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+
 const bot = linebot({
   channelId: process.env.CHANNEL_ID,
   channelSecret: process.env.CHANNEL_SECRET,
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN
-});
-
-AWS.config.update({
-  region: 'ap-northeast-1'
 });
 
 const tmdbAxios = axios.create({
@@ -25,44 +24,53 @@ const tmdbAxios = axios.create({
   }
 });
 
+AWS.config.update({
+  region: 'ap-northeast-1'
+});
+
 module.exports.main = async (event) => {
   if (bot.verify(event.body, event.headers["x-line-signature"])) {
-    var body = JSON.parse(event.body)["events"][0];
-    var replyToken = body.replyToken;
-    var userId = body.source.userId;
-    var messages = [];
+
+    const body = JSON.parse(event.body)["events"][0];
+    const replyToken = body.replyToken;
+    const userId = body.source.userId;
+    let messages = [];
+
     switch (body.type) {
       case "follow":
         await deleteUser(userId);
         await createUser(userId);
-        var welcomeMsg = welcomeMessage();
-        var addressMsg = setAddressMessage();
+
+        let welcomeMsg = welcomeMessage();
+        let addressMsg = setAddressMessage();
+
         messages.push(welcomeMsg, addressMsg);
         await replyMessage(replyToken, messages);
         break;
       case "message":
-        var res = await getUser(userId);
-        var user = JSON.parse(res);
-        var messages = await setReply(user, body);
+        let res = await getUser(userId);
+        let user = JSON.parse(res);
+        messages = await setReply(user, body);
         if (messages.length > 0) {
           await replyMessage(replyToken, messages);
         }
         break;
       case "postback":
         if (body.postback.data === 'restart') {
-          var keyParams = {
+          let keyParams = {
             "user_id": userId,
           };
-          var expAtr = resetParams();
+          let expAtr = resetParams();
           await updateUser(keyParams, expAtr);
-          var addressMsg = setAddressMessage();
+          let addressMsg = setAddressMessage();
+
           messages.push(addressMsg);
           await replyMessage(replyToken, messages);
           break;
         } else {
-          var res = await getUser(userId);
-          var user = JSON.parse(res);
-          var messages = await setReply(user, body);
+          let res = await getUser(userId);
+          let user = JSON.parse(res);
+          let messages = await setReply(user, body);
           if (messages.length > 0) {
             await replyMessage(replyToken, messages);
           }
@@ -76,21 +84,26 @@ module.exports.main = async (event) => {
 };
 
 async function setReply(user, eventBody) {
-  var messages = [];
+  const keyParams = {
+    "user_id": user.user_id,
+  };
+  let messages = [];
+
   switch (user.situation) {
     case "address":
-      var messageType = eventBody.message.type;
+      let messageType = eventBody.message.type;
+
+      // EX: -> return if use send emoji to bot.
       if (messageType != "text" && messageType != "location") {
         return messages;
       }
-      var keyParams = {
-        "user_id": user.user_id,
-      };
-      var expAtr = resetParams();
+
+      let expAtr = resetParams();
       await updateUser(keyParams, expAtr);
-      var location = new Object();
-      var searchStatus;
-      var destination;
+      let location = new Object();
+      let searchStatus;
+      let destination;
+
       if (messageType == "text") {
         destination = eventBody.message.text.replace(/\r?\n/g, " ");
         location = await getLocation(destination);
@@ -107,41 +120,39 @@ async function setReply(user, eventBody) {
       }
 
       if (searchStatus == "OK" || searchStatus == "LINE_LOCATION") {
-        var setTimeMsg = setTimeMessage();
+        let setTimeMsg = setTimeMessage();
         messages.push(setTimeMsg);
-        var keyParams = {
-          "user_id": user.user_id,
-        };
-        var expAtr = {
+
+        let expAtr = {
           ":sit": "time",
           ":lng": location.lng,
           ":lat": location.lat,
           ":plc": destination,
-          ":sct": "",
-          ":cur": "",
           ":dir": 0,
           ":rel": 0,
+          ":sct": "",
+          ":cur": "",
         };
         await updateUser(keyParams, expAtr);
       } else if (searchStatus == "ZERO_RESULTS") {
-        var resetAddMsg = resetAddressMessage();
+        let resetAddMsg = resetAddressMessage();
         messages.push(resetAddMsg);
       } else {
-        var errorMsg = resetAddressMessage()
+        let errorMsg = resetAddressMessage()
         messages.push(errorMsg);
       }
       break;
+
     case "time":
     case "searched":
-      var nearByTheaters;
-      var theatersInfo;
-      var moviesInfo;
-      var userTime;
-      var keyParams = {
-        "user_id": user.user_id,
-      };
+      let nearByTheaters;
+      let theatersInfo;
+      let moviesInfo;
+      let userTime;
+
+      // EX: -> return if use send text to bot.
       if (eventBody.message) {
-        var resetTimeMsg = resetTimeMessage();
+        let resetTimeMsg = resetTimeMessage();
         messages.push(resetTimeMsg);
         return messages;
       } else if (eventBody.postback.data === "datePick") {
@@ -149,33 +160,33 @@ async function setReply(user, eventBody) {
         theatersInfo = [];
         if (nearByTheaters.length > 0) {
           for (let i = 0; i < nearByTheaters.length; i++) {
-            var params = {
+            let params = {
               TableName: "Cinemas",
               Key: {
                 "name": nearByTheaters[i]
               }
             };
-            var res = await docClient.get(params).promise();
+            let res = await docClient.get(params).promise();
             theatersInfo.push(JSON.stringify(res.Item));
           }
           moviesInfo = processingInfo(theatersInfo, eventBody.postback.params.time);
           userTime = eventBody.postback.params.time;
-          var expAtr = {
+          let expAtr = {
             ":sit": "searched",
-            ":sct": eventBody.postback.params.time,
             ":lng": user.lng,
             ":lat": user.lat,
             ":plc": user.place,
-            ":cur": moviesInfo,
             ":dir": 0,
             ":rel": 0,
+            ":sct": eventBody.postback.params.time,
+            ":cur": moviesInfo,
           };
           await updateUser(keyParams, expAtr);
         } else {
-          var noTheaterMsg = noTheaterMessage();
-          var addressMsg = setAddressMessage();
+          let noTheaterMsg = noTheaterMessage();
+          let addressMsg = setAddressMessage();
           messages.push(noTheaterMsg, addressMsg);
-          var expAtr = resetParams();
+          let expAtr = resetParams();
           await updateUser(keyParams, expAtr);
           return messages;
         }
@@ -183,39 +194,41 @@ async function setReply(user, eventBody) {
         moviesInfo = user.currentResults;
         userTime = user.scheduledTime;
       }
+
       if ((moviesInfo.length > 0) && (moviesInfo.length < 10)) {
-        var finishMsg = searchFinishMessage(user.place, userTime, moviesInfo.length);
-        var placesMsg = await theatersMessage(moviesInfo);
+        let finishMsg = searchFinishMessage(user.place, userTime, moviesInfo.length);
+        let placesMsg = await theatersMessage(moviesInfo);
         messages.push(finishMsg, placesMsg);
-        var expAtr = resetParams();
+        let expAtr = resetParams();
+        await updateUser(keyParams, expAtr);
       } else if (moviesInfo.length > 10) {
-        var moreRes = user.displayResults + 5;
-        var remainInfo = moviesInfo.length - moreRes;
-        var finishMsg = searchFinishMessage(user.place, userTime, moviesInfo.length);
-        var placesMsg = await theatersMessage(moviesInfo.slice(user.displayResults, moreRes), remainInfo);
+        let moreRes = user.displayResults + 5;
+        let remainInfo = moviesInfo.length - moreRes;
+        let finishMsg = searchFinishMessage(user.place, userTime, moviesInfo.length);
+        let placesMsg = await theatersMessage(moviesInfo.slice(user.displayResults, moreRes), remainInfo);
         messages.push(finishMsg, placesMsg);
-        var expAtr = {
+        let expAtr = {
           ":sit": "searched",
-          ":sct": userTime,
           ":lng": user.lng,
           ":lat": user.lat,
           ":plc": user.place,
           ":dir": moreRes,
           ":rel": moviesInfo.length,
+          ":sct": userTime,
           ":cur": moviesInfo
         };
+        await updateUser(keyParams, expAtr);
       } else {
-        var noTheaterMsg = noTheaterMessage();
+        let noTheaterMsg = noTheaterMessage();
         messages.push(noTheaterMsg);
-        var expAtr = resetParams();
+        let expAtr = resetParams();
+        await updateUser(keyParams, expAtr);
       }
-      await updateUser(keyParams, expAtr);
       break;
   }
   return messages;
 }
 
-// Bot reply message.
 async function replyMessage(replyToken, messages) {
   await bot.reply(replyToken, messages)
     .then(function (data) {
@@ -225,21 +238,22 @@ async function replyMessage(replyToken, messages) {
     });
 }
 
-// Fix -> Process theaters data.
+// FIX: -> Process theaters data.
 function processingInfo(theatersInfo, time) {
-  const moviesInfo = new Array();
-  var movieInfo;
-  for (var i = 0; i < theatersInfo.length; i++) {
-    if (typeof theatersInfo[i] !== "undefined") {
-      var theater = JSON.parse(theatersInfo[i]);
-      for (var n = 0; n < theater.cnm_info[0].length; n++) {
-        const targetMovie = theater.cnm_info[0][n].props[0][0].find((movie) => {
+  let moviesInfo = new Array();
+  let movieInfo;
+
+  for (let ti = 0; ti < theatersInfo.length; ti++) {
+    if (typeof theatersInfo[ti] !== "undefined") {
+      let theater = JSON.parse(theatersInfo[ti]);
+      for (let ci = 0; ci < theater.cnm_info[0].length; ci++) {
+        const targetMovie = theater.cnm_info[0][ci].props[0][0].find((movie) => {
           return movie.time > time;
         });
         if (typeof targetMovie !== "undefined") {
-          var movieInfo = {
+          movieInfo = {
             "mvTheater": theater.name,
-            "mvTitle": theater.cnm_info[0][n].title,
+            "mvTitle": theater.cnm_info[0][ci].title,
             "mvTime": targetMovie.time
           };
           moviesInfo.push(movieInfo);
@@ -251,14 +265,14 @@ function processingInfo(theatersInfo, time) {
 }
 
 async function getLocation(address) {
-  var geocodeApiUrl = "https://maps.googleapis.com/maps/api/geocode/json";
-  var location = new Object();
-  var params = {
+  let geocodeApiUrl = "https://maps.googleapis.com/maps/api/geocode/json";
+  let location = new Object();
+  let params = {
     address: address,
     components: {
       country: "ja"
     },
-    key: googleKey,
+    key: GOOGLE_API_KEY,
   };
   location = await axios.get(geocodeApiUrl, {
       params: params
@@ -276,11 +290,11 @@ async function getLocation(address) {
 }
 
 function searchTheaters(lat, lng) {
-  const theaterLists = [];
+  let theaterLists = [];
   const R = Math.PI / 180;
   theaters.features.forEach(theater => {
-    var theaterLng = theater.geometry.coordinates[0];
-    var theaterLat = theater.geometry.coordinates[1];
+    let theaterLng = theater.geometry.coordinates[0];
+    let theaterLat = theater.geometry.coordinates[1];
     if (getDistance(lat, lng, theaterLat, theaterLng, R) < 10) {
       theaterLists.push(theater.properties.title);
     }
@@ -299,10 +313,11 @@ function getDistance(userLat, userLng, theaterLat, theaterLng, radius) {
 
 // Set theaters flex messages.
 async function theatersMessage(moviesInfo, remainInfo) {
-  const bubbleList = new Array();
-  for (var i = 0; i < moviesInfo.length; i++) {
-    var movieImage;
-    const image_path = await tmdbAxios.get(encodeURI(`https://api.themoviedb.org/3/search/multi?api_key=${process.env.TMDB_API_KEY}&language=ja&query=${moviesInfo[i].mvTitle}&page=1&include_adult=false`))
+  let bubbleList = new Array();
+
+  for (let i = 0; i < moviesInfo.length; i++) {
+    let movieImage;
+    const image_path = await tmdbAxios.get(encodeURI(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&language=ja&query=${moviesInfo[i].mvTitle}&page=1&include_adult=false`))
       .then((res) => {
         return res.data.results[0].poster_path;
       })
@@ -312,18 +327,20 @@ async function theatersMessage(moviesInfo, remainInfo) {
     if (image_path !== "ZERO_RESULTS") {
       movieImage = `https://image.tmdb.org/t/p/w500/${image_path}`;
     } else {
-      movieImage = `https://pic-for-eigamap.s3.ap-northeast-1.amazonaws.com/liam-mcgarry-4txHVae2MJ0-unsplash.jpg`;
+      movieImage = S3_IMAGE;
     }
-    var bubbleMsg = setBubbleMsg(moviesInfo[i].mvTheater, moviesInfo[i].mvTitle, moviesInfo[i].mvTime, movieImage);
+    let bubbleMsg = setBubbleMsg(moviesInfo[i].mvTheater, moviesInfo[i].mvTitle, moviesInfo[i].mvTime, movieImage);
     bubbleList.push(bubbleMsg);
   }
+
   if (remainInfo > 5) {
-    var moreMsg = setMoreMsg();
+    let moreMsg = setMoreMsg();
     bubbleList.push(moreMsg);
   }
-  var startMsg = setStartMsg();
+
+  let startMsg = setStartMsg();
   bubbleList.push(startMsg);
-  var flexMsg = {
+  let flexMsg = {
     "type": "flex",
     "altText": "近くの映画上映情報",
     "contents": {
@@ -335,7 +352,7 @@ async function theatersMessage(moviesInfo, remainInfo) {
 }
 
 function welcomeMessage() {
-  var msg = {
+  let msg = {
     "type": "text",
     "text": "はじめまして$となりの映画館です$" + "\n\n" +
       "お友達登録ありがとうございます$ このアカウントでは、あなたが今いる場所からすぐ行ける映画館の上映情報をピックアップしてお届けします$$" + "\n\n" +
@@ -381,7 +398,7 @@ function welcomeMessage() {
 }
 
 function setAddressMessage() {
-  var msg = {
+  let msg = {
     "type": "text",
     "text": "それでは、映画を見たい場所を教えてください$" + "\n\n" +
       "ランドマーク(目印となる場所)の名前でも検索出来ます$" + "\n\n" +
@@ -402,7 +419,7 @@ function setAddressMessage() {
 }
 
 function resetAddressMessage() {
-  var msg = {
+  let msg = {
     "type": "text",
     "text": "ごめんなさい！入力してもらった場所の近くに、映画館が見つかりませんでした。目的地の再入力をお願いします$",
     "emojis": [{
@@ -415,7 +432,7 @@ function resetAddressMessage() {
 }
 
 function setTimeMessage() {
-  var msg = {
+  let msg = {
     "type": "text",
     "text": "何時くらいに観に行きますか？下のボタンから選んでください$",
     "emojis": [{
@@ -439,7 +456,7 @@ function setTimeMessage() {
 }
 
 function resetTimeMessage() {
-  var msg = {
+  let msg = {
     "type": "text",
     "text": "ごめんなさい!時間は下のボタンから選んでね。$",
     "emojis": [{
@@ -463,7 +480,7 @@ function resetTimeMessage() {
 }
 
 function noTheaterMessage() {
-  var msg = {
+  let msg = {
     "type": "text",
     "text": "ごめんなさい！目的の時間と場所からは上映情報が見つかりませんでした$$" + "\n\n" + "場所と時間を変えてみてね!",
     "emojis": [{
@@ -482,7 +499,7 @@ function noTheaterMessage() {
 }
 
 function searchFinishMessage(place, time, searchResults) {
-  var msg = {
+  let msg = {
     "type": "text",
     "text": "お待たせしました！今から行ける映画情報はこちらです$" + "\n\n" +
       "検索場所：" + place + "\n" +
@@ -500,7 +517,7 @@ function searchFinishMessage(place, time, searchResults) {
 }
 
 function setMoreMsg() {
-  var moreMsg = {
+  let moreMsg = {
     "type": "bubble",
     "body": {
       "type": "box",
@@ -558,7 +575,7 @@ function setMoreMsg() {
 }
 
 function setStartMsg() {
-  var startMsg = {
+  let startMsg = {
     "type": "bubble",
     "body": {
       "type": "box",
@@ -616,7 +633,7 @@ function setStartMsg() {
 }
 
 function setBubbleMsg(theaterName, movieName, movieTime, movieImage) {
-  var bubbleMsg = {
+  let bubbleMsg = {
     "type": "bubble",
     "body": {
       "type": "box",
@@ -737,22 +754,22 @@ function setBubbleMsg(theaterName, movieName, movieTime, movieImage) {
 }
 
 function resetParams() {
-  var resetParams = {
+  let resetParams = {
     ":sit": "address",
     ":lng": "",
     ":lat": "",
     ":plc": "",
-    ":sct": "",
-    ":cur": "",
     ":dir": 0,
     ":rel": 0,
+    ":sct": "",
+    ":cur": "",
   };
   return resetParams;
 }
 
 // crud user -------------------------------------------------------------------------------
 async function createUser(userId) {
-  var params = {
+  let params = {
     TableName: "eigabot_users",
     Item: {
       "user_id": userId,
@@ -769,44 +786,44 @@ async function createUser(userId) {
 }
 
 async function getUser(userId) {
-  var params = {
+  let params = {
     TableName: "eigabot_users",
     Key: {
       "user_id": userId
     }
   };
-  var res = await docClient.get(params, function (err, data) {
+  let res = await docClient.get(params, function (err, data) {
     if (err) {
       console.error("Unable to get user. Error JSON:", JSON.stringify(err, null, 2));
     } else {
       console.log("Got user:", JSON.stringify(data, null, 2));
     }
   }).promise();
-  var user = JSON.stringify(res.Item);
+  let user = JSON.stringify(res.Item);
   return user;
 }
 
 async function updateUser(keyParams, expAtr) {
-  var params = {
+  let params = {
     TableName: "eigabot_users",
     Key: keyParams,
     UpdateExpression: "set situation = :sit, lng = :lng, lat = :lat, place = :plc, displayResults = :dir, results = :rel, scheduledTime = :sct, currentResults = :cur",
     ExpressionAttributeValues: expAtr,
     ReturnValues: "UPDATED_NEW"
   };
-  var res = await docClient.update(params, function (err, data) {
+  let res = await docClient.update(params, function (err, data) {
     if (err) {
       console.error("Unable to update user. Error JSON:", JSON.stringify(err, null, 2));
     } else {
       console.log("Updated user:", JSON.stringify(data, null, 2));
     }
   }).promise();
-  var user = JSON.stringify(res.Item);
+  let user = JSON.stringify(res.Item);
   return user;
 }
 
 async function deleteUser(userId) {
-  var params = {
+  let params = {
     TableName: "eigabot_users",
     Key: {
       "user_id": userId
